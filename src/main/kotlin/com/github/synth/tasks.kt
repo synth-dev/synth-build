@@ -4,8 +4,48 @@ import com.sun.swing.internal.plaf.synth.resources.*
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.TaskAction
 import java.io.*
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
+
+open class RunClientGame : DefaultTask() {
+    init {
+        dependsOn("${project.path}:jar")
+        finalizedBy("${project.path}:runClient")
+    }
+
+    @TaskAction
+    fun run() {
+        project.subprojects.forEach {
+//            val reobf = File(it.buildDir, "reobfJar")
+//            if (reobf.exists()) {
+//                if(File(reobf, "oputput.jar").delete())
+//                    println("HERE: ${reobf}")
+//                if (reobf.delete())
+//                    println("Deleted reobf dir")
+//            }
+        }
+    }
+}
+
+open class RunServerGame : DefaultTask() {
+    init {
+        finalizedBy("${project.path}:runServer")
+    }
+
+    @TaskAction
+    fun run() {
+        project.subprojects.forEach {
+            val reobf = File(it.buildDir, "reobfJar")
+            if (reobf.exists()) {
+                if(File(reobf, "oputput.jar").delete())
+                    println("HERE: ${reobf}")
+                if (reobf.delete())
+                    println("Deleted reobf dir")
+            }
+        }
+    }
+}
 
 open class GenerateAssetsFolder : DefaultTask() {
     @TaskAction
@@ -16,12 +56,32 @@ open class GenerateAssetsFolder : DefaultTask() {
                 it.srcDirs.forEach {
                     val assets = File(it, "assets${File.separator}${ext.modInfo.modid}")
                     if (!assets.exists()) assets.mkdirs()
+                    makeFoldersFor(assets)
                     val data = File(it, "data${File.separator}${ext.modInfo.modid}")
                     if (!data.exists()) data.mkdirs()
                 }
             }
         }
     }
+
+    private fun makeFoldersFor(assetsFolder: File) {
+        File(assetsFolder, "animations").mkdirs()
+        File(assetsFolder, "blockstates").mkdirs()
+        File(assetsFolder, "geo").mkdirs()
+        File(assetsFolder, "lang").mkdirs()
+        val models = File(assetsFolder, "models")
+        File(models, "item").mkdirs()
+        File(models, "block").mkdirs()
+        File(assetsFolder, "particle").mkdirs()
+        File(assetsFolder, "sounds").mkdirs()
+        val textures = File(assetsFolder, "textures")
+        File(textures, "block").mkdirs()
+        File(textures, "entity").mkdirs()
+        File(textures, "gui").mkdirs()
+        File(textures, "item").mkdirs()
+
+    }
+
 
 }
 

@@ -7,12 +7,60 @@ import net.minecraftforge.gradle.userdev.*
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.plugins.*
+import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.internal.file.impl.DefaultFileMetadata.*
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.*
 import java.time.*
 import java.util.*
 
 class SynthPlugin : Plugin<Project> {
+
+    /**
+     * Run some action involving the project
+     */
+    override fun apply(project: Project): Unit {
+        project.beforeEvaluate {
+            setupBuildscript.execute(project)
+        }
+        project.evaluationDependsOnChildren()
+
+        applyPlugins.execute(project)
+
+        setupExtensions.execute(project)
+        configureRepositories.execute(project)
+        configureMinecraftPlugin.execute(project)
+        configureJar.execute(project)
+        configureDependencies.execute(project)
+        val ex = project.extensions.getByType(SynthExtension::class.java)
+        project.tasks.register("${ex.modInfo.modid}Server", RunServerGame::class.java) {
+            it.group = "synth"
+        }
+        project.tasks.register("${ex.modInfo.modid}Client", RunClientGame::class.java) {
+            it.group = "synth"
+        }
+        project.tasks.register("generatePackMeta", GeneratePackMeta::class.java) {
+            it.group = "synth"
+        }
+
+        project.tasks.register("generateToml", GenerateTomlTask::class.java) {
+            it.group = "synth"
+        }
+
+        project.tasks.register("generateMain", GenerateModObject::class.java) {
+            it.group = "synth"
+        }
+
+        project.tasks.register("generateFolders", GenerateAssetsFolder::class.java) {
+            it.group = "synth"
+        }
+
+        project.tasks.register("generateAll") {
+            it.finalizedBy(":generatePackMeta", ":generateToml", ":generateMain")
+            it.group = "synth"
+        }
+
+    }
 
 
     /**
@@ -68,15 +116,37 @@ class SynthPlugin : Plugin<Project> {
     private val configureMinecraftPlugin = ProjectRunnable { project ->
         val mc = project.extensions.getByType(MinecraftExtension::class.java)
         val synth = project.extensions.getByType(SynthExtension::class.java)
+        val includes = synth.includes.includes
         val info = synth.modInfo
         val registerMod = { run: RunConfig ->
             run.mods.register(info.modid) {
                 it.sources(synth.sources.sources)
             }
+            println("HERE: $includes")
+
+//            project.afterEvaluate {
+            includes.forEach {
+                println("HERE: ${it}")
+                project.project(it) {
+
+                    it.extensions.getByType(SourceSetContainer::class.java).getByName("main").resources {
+                        it.srcDirs("src/generated/resources/")
+                    }
+
+                    println("HERE: ${it.path}")
+                    val ex = it.extensions.getByType(SynthExtension::class.java)
+                    run.mods.register(ex.modInfo.modid) {
+                        it.sources(ex.sources.sources)
+                    }
+//                    }
+
+                }
+            }
         }
 
         mc.mappings(synth.mappings.channel, synth.mappings.version)
         val runs = mc.runs
+
         runs.create("client") {
             it.workingDirectory(project.file("run"))
             it.property("forge.logging.markers", "SCAN,LOADING,CORE")
@@ -84,8 +154,10 @@ class SynthPlugin : Plugin<Project> {
 
             it.property("mixin.env.remapRefMap", "true")
             it.property("mixin.env.refMapRemappingFile", "${project.projectDir}/build/createSrgToMcp/output.srg")
+            project.afterEvaluate { proj ->
+                registerMod(it)
+            }
 
-            registerMod(it)
         }
         mc.runs.create("server") {
             it.workingDirectory(project.file("run/server"))
@@ -94,8 +166,31 @@ class SynthPlugin : Plugin<Project> {
 
             it.property("mixin.env.remapRefMap", "true")
             it.property("mixin.env.refMapRemappingFile", "${project.projectDir}/build/createSrgToMcp/output.srg")
+            project.afterEvaluate { proj ->
+                registerMod(it)
+            }
+        }
 
-            registerMod(it)
+        mc.runs.create("data") {
+            it.workingDirectory(project.file("run"))
+            it.property("forge.logging.markers", "SCAN,LOADING,CORE")
+            it.property("forge.logging.console.level", "debug")
+            it.property("mixin.env.remapRefMap", "true")
+            it.property("mixin.env.refMapRemappingFile", "${project.projectDir}/build/createSrgToMcp/output.srg")
+            it.args(
+                listOf(
+                    "--mod",
+                    synth.modInfo.modid,
+                    "--all",
+                    "--output",
+                    project.file("src/generated/resources/"),
+                    "--existing",
+                    project.file("src/main/resources")
+                )
+            )
+            project.afterEvaluate { proj ->
+                registerMod(it)
+            }
         }
     }
 
@@ -163,47 +258,10 @@ class SynthPlugin : Plugin<Project> {
                     )
                 )
             }
-            finalizedBy("reobfJar")
+            finalizedBy("${project.path}:reobfJar")
         })
     }
 
-
-    /**
-     * Run some action involving the project
-     */
-    override fun apply(project: Project): Unit {
-        project.beforeEvaluate {
-            setupBuildscript.execute(project)
-
-        }
-        applyPlugins.execute(project)
-
-        setupExtensions.execute(project)
-        configureRepositories.execute(project)
-        configureMinecraftPlugin.execute(project)
-        configureJar.execute(project)
-        configureDependencies.execute(project)
-
-        project.tasks.register("generatePackMeta", GeneratePackMeta::class.java) {
-            it.group = "synth"
-        }
-
-
-
-        project.tasks.register("generateToml", GenerateTomlTask::class.java) {
-            it.group = "synth"
-        }
-
-        project.tasks.register("generateMain", GenerateModObject::class.java) {
-            it.group = "synth"
-        }
-
-        project.tasks.register("generateAll") {
-            it.finalizedBy(":generatePackMeta", ":generateToml", ":generateMain")
-            it.group = "synth"
-        }
-
-    }
 
     /**
      * Apply some action to the project1

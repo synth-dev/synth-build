@@ -7,15 +7,16 @@ import org.gradle.api.*
 import org.gradle.api.model.*
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
+import java.util.HashSet
 import javax.inject.Inject
-
 
 abstract class SynthExtension @Inject constructor(objects: ObjectFactory) {
     internal val versions: Versions = objects.newInstance(Versions::class.java)
     internal val mappings: Mappings = objects.newInstance(Mappings::class.java)
     internal val sources: Sources = objects.newInstance(Sources::class.java)
     internal val modInfo: ModInfo = objects.newInstance(ModInfo::class.java)
-    internal val dependencies: Dependencies = objects.newInstance(Dependencies::class.java)
+    private val dependencies: Dependencies = objects.newInstance(Dependencies::class.java)
+    internal val includes: Includes = objects.newInstance(Includes::class.java)
 
     fun info(action: Action<ModInfo>) = action.execute(modInfo)
 
@@ -38,6 +39,21 @@ abstract class SynthExtension @Inject constructor(objects: ObjectFactory) {
      * The sources used for the mod's sourcesets
      */
     fun sources(action: Action<Sources>) = action.execute(sources)
+
+    fun includes(action: Action<Includes>) = action.execute(includes)
+}
+
+open class Includes @Inject constructor(private val projectIn: Project) {
+    internal val includes: HashSet<String> = HashSet()
+
+    fun projectOf(project: Project) {
+        includes.add(project.path)
+    }
+
+    fun projectOf(projectPath: String) {
+        val project = projectIn.project(projectPath)
+        projectOf(projectIn.project(projectPath))
+    }
 }
 
 /**
@@ -71,8 +87,6 @@ open class Dependencies @Inject constructor(val project: Project) {
 
     private fun add(name: String, notation: Any, deobf: Boolean) {
         val depends = project.dependencies
-//        println(project.name)
-//        println(project.configurations.names)
         val fg = project.extensions.getByType(DependencyManagementExtension::class.java)
         depends.add(name, if (deobf) fg.deobf(notation) else notation)
     }
