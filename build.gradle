@@ -1,0 +1,45 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.6.20'
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+    id 'java-library'
+}
+
+group 'com.github.synth.build'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.parchmentmc.org' }
+    maven { url = 'https://maven.minecraftforge.net' }
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
+    implementation 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.6.20'
+    implementation gradleApi()
+    implementation localGroovy()
+    implementation group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
+    implementation 'org.parchmentmc:librarian:1.+'
+//    implementation 'com.github.TheRandomLabs:CurseAPI:cdc5d48'
+}
+
+publishing {
+    repositories {
+        maven {
+            setUrl("$buildDir/repo")
+        }
+    }
+}
+
+
+gradlePlugin {
+    plugins {
+        synth {
+            id = 'com.github.synth.build'
+            implementationClass = 'com.github.synth.SynthPlugin'
+        }
+    }
+}
+
